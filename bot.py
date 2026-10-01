@@ -23,26 +23,39 @@ def _mode_badge() -> str:
     return "CANLI"
 
 
+def _coin(symbol: str) -> str:
+    return (symbol or "").replace("USDT", "")
+
+
+def _balance_line() -> str:
+    try:
+        from paper_trading import get_portfolio_status
+
+        s = get_portfolio_status()
+        return f"Bakiye ${s['equity']:,.0f} · nakit ${s['usdt']:,.0f} · K/Z ${s['pnl']:+,.0f}"
+    except Exception:
+        return ""
+
+
 def format_trade_message(
     signal: TradingSignal,
     order: Optional[dict] = None,
 ) -> str:
-    """Kısa AL/SAT bildirimi."""
+    """Kisa AL/SAT bildirimi."""
     side = signal.signal.value
     if side == "DCA":
         side = "BUY"
     label = "AL" if side == "BUY" else "SAT"
     price = order.get("price", signal.current_price) if order else signal.current_price
-    order_id = (order or {}).get("order_id", "-")
-    reason = (signal.reason or "")[:180]
-
-    return (
-        f"{_mode_badge()} | {label} {signal.symbol}\n"
-        f"Fiyat: ${price:,.2f}\n"
-        f"Guc: {signal.strength:.0%}\n"
-        f"Emir: {order_id}\n"
-        f"{reason}"
-    )
+    quote = (order or {}).get("quote_qty")
+    bal = _balance_line()
+    lines = [
+        f"{_mode_badge()} | {label} {_coin(signal.symbol)}",
+        f"${price:,.2f}" + (f" · ${float(quote):,.0f}" if quote else ""),
+    ]
+    if bal:
+        lines.append(bal)
+    return "\n".join(lines)
 
 
 async def _send_text(text: str) -> bool:
@@ -81,31 +94,28 @@ def send_trade_notification(
 
 
 def send_trade_record_notification(trade: dict) -> bool:
-    """Veritabani islem kaydindan Telegram bildirimi."""
+    """Islem kaydindan kisa Telegram bildirimi."""
     side = trade.get("side", "")
     label = "AL" if side == "BUY" else "SAT"
     symbol = trade.get("symbol", "")
     price = float(trade.get("price") or 0)
-    qty = float(trade.get("quantity") or 0)
-    order_id = trade.get("order_id", "-")
-    ts = (trade.get("executed_at") or trade.get("created_at") or "")[:16].replace("T", " ")
-
-    text = (
-        f"{_mode_badge()} | {label} {symbol}\n"
-        f"Fiyat: ${price:,.2f}\n"
-        f"Miktar: {qty:.6f}\n"
-        f"Emir: {order_id}\n"
-        f"Zaman: {ts}"
-    )
+    quote = trade.get("quote_qty")
+    bal = _balance_line()
+    lines = [
+        f"{_mode_badge()} | {label} {_coin(symbol)}",
+        f"${price:,.2f}" + (f" · ${float(quote):,.0f}" if quote else ""),
+    ]
+    if bal:
+        lines.append(bal)
     try:
-        return asyncio.run(_send_text(text))
+        return asyncio.run(_send_text("\n".join(lines)))
     except Exception as exc:
         logger.error("Telegram islem bildirimi hatasi: %s", exc)
         return False
 
 
 def send_balance_notification() -> bool:
-    """Saatlik (veya periyodik) bakiye ozeti Telegram."""
+    """Periyodik bakiye ozeti."""
     from datetime import datetime
 
     import settings as cfg
@@ -118,19 +128,13 @@ def send_balance_notification() -> bool:
         logger.error("Bakiye ozeti alinamadi: %s", exc)
         return False
 
-    ts = datetime.now().strftime("%d.%m %H:%M")
-    pnl_sign = "+" if s["pnl"] >= 0 else ""
+    ts = datetime.now().strftime("%H:%M")
     text = (
-        f"{_mode_badge()} | Bakiye ({ts})\n"
-        f"Toplam: ${s['equity']:,.2f}\n"
-        f"Nakit USDT: ${s['usdt']:,.2f}\n"
-        f"Baslangic: ${s['initial']:,.2f}\n"
-        f"K/Z: {pnl_sign}${s['pnl']:,.2f} ({s['pnl_pct']:+.1f}%)"
+        f"{_mode_badge()} | Bakiye {ts}\n"
+        f"${s['equity']:,.0f} · nakit ${s['usdt']:,.0f} · K/Z ${s['pnl']:+,.0f}"
     )
     if s.get("positions"):
-        text += "\n\nPozisyonlar:\n" + "\n".join(s["positions"][:6])
-    else:
-        text += "\n\nAcik pozisyon yok."
+        text += "\n" + " · ".join(s["positions"][:4])
 
     try:
         return asyncio.run(_send_text(text))
@@ -145,50 +149,34 @@ def send_watchlist_summary(
     action: str,
     gemini_reason: str = "",
 ) -> bool:
-    """Coklu coin tarama ozeti Telegram."""
+    """Kisa tarama ozeti."""
     if not scans:
         return False
 
-    def _short(sig_type: str) -> str:
-        if sig_type in ("BUY", "DCA"):
-            return "AL"
-        if sig_type == "SELL":
-            return "SAT"
-        return "BEKLE"
+    action_tr = {
+        "HOLD": "BEKLE",
+        "BUY": "AL",
+        "SELL": "SAT",
+        "DCA": "AL",
+        "AUTO_OFF": "KAPALI",
+        "SKIPPED_NO_PICK": "BEKLE",
+        "SKIPPED_LOW_STRENGTH": "BEKLE",
+    }.get(action, action)
+    if action.startswith("SL_TP:"):
+        action_tr = action.replace("SL_TP:", "")
+    if action.startswith("ERROR"):
+        action_tr = "HATA"
 
-    lines = []
-    for s in scans[:8]:
-        sig = s["signal"]
-        base = s["symbol"].replace("USDT", "")
-        lines.append(f"{base} {_short(sig.signal.value)} {sig.strength:.0%}")
-
-    text = (
-        f"{_mode_badge()} | Tarama ({len(scans)} coin)\n"
-        + " · ".join(lines)
-    )
-    if picked_symbol:
-        text += f"\nSecilen: {picked_symbol.replace('USDT', '')}"
-        if gemini_reason:
-            text += f"\nGemini: {gemini_reason[:100]}"
-    text += f"\nAksiyon: {action}"
-
-    # HOLD ise nedenini kısaca açıkla
-    if action in ("HOLD", "SKIPPED_NO_PICK", "SKIPPED_LOW_STRENGTH"):
-        best = max(scans, key=lambda s: s["signal"].strength, default=None)
-        if best:
-            sig = best["signal"]
-            base = best["symbol"].replace("USDT", "")
-            short = _short(sig.signal.value)
-            if sig.signal.value == "HOLD" or sig.strength < 0.5:
-                text += "\nNeden: Net AL/SAT sinyali yok (teknik kosullar saglanmadi)."
-            else:
-                text += (
-                    f"\nEn guclu: {base} {short} {sig.strength:.0%} "
-                    f"(esik altinda kalabilir)."
-                )
+    coin = _coin(picked_symbol) if picked_symbol else "-"
+    bal = _balance_line()
+    lines = [f"{_mode_badge()} | Tarama · {action_tr}"]
+    if picked_symbol and action_tr not in ("BEKLE", "KAPALI"):
+        lines.append(f"Secilen: {coin}")
+    if bal:
+        lines.append(bal)
 
     try:
-        return asyncio.run(_send_text(text))
+        return asyncio.run(_send_text("\n".join(lines)))
     except Exception as exc:
         logger.error("Telegram tarama ozeti hatasi: %s", exc)
         return False
@@ -202,24 +190,17 @@ def send_cycle_notification(
     action: str,
     sentiment_score: float = 0.0,
 ) -> bool:
-    """Her analiz dongusu icin kisa Telegram ozeti (HOLD dahil)."""
-    label = signal_type
-    if signal_type in ("BUY", "DCA"):
-        label = "AL"
-    elif signal_type == "SELL":
-        label = "SAT"
-    elif signal_type == "HOLD":
-        label = "BEKLE"
-
-    text = (
-        f"{_mode_badge()} | Analiz\n"
-        f"{symbol} ${price:,.2f}\n"
-        f"Sinyal: {label} ({strength:.0%})\n"
-        f"Haber: {sentiment_score:+.2f}\n"
-        f"Aksiyon: {action}"
-    )
+    """Tek dongu ozeti — kisa."""
+    label = {"BUY": "AL", "DCA": "AL", "SELL": "SAT", "HOLD": "BEKLE"}.get(signal_type, signal_type)
+    bal = _balance_line()
+    lines = [
+        f"{_mode_badge()} | {_coin(symbol)} {label}",
+        f"${price:,.2f} · {strength:.0%}",
+    ]
+    if bal:
+        lines.append(bal)
     try:
-        return asyncio.run(_send_text(text))
+        return asyncio.run(_send_text("\n".join(lines)))
     except Exception as exc:
         logger.error("Telegram dongu bildirimi hatasi: %s", exc)
         return False

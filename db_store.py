@@ -264,3 +264,14 @@ def update_paper_portfolio(usdt_balance: float, holdings: dict) -> None:
             "UPDATE paper_portfolio SET usdt_balance = ?, holdings = ?, updated_at = ? WHERE id = 1",
             (usdt_balance, json.dumps(holdings), _now_iso()),
         )
+
+
+def reset_paper_portfolio(initial_balance: Optional[float] = None) -> None:
+    from settings import PAPER_INITIAL_BALANCE
+
+    bal = initial_balance if initial_balance is not None else PAPER_INITIAL_BALANCE
+    with get_connection() as conn:
+        conn.execute(
+            "UPDATE paper_portfolio SET usdt_balance = ?, holdings = '{}', initial_balance = ?, updated_at = ? WHERE id = 1",
+            (bal, bal, _now_iso()),
+        )

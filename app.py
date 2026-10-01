@@ -16,11 +16,12 @@ from settings import (
     save_risk_settings,
     save_telegram_settings,
 )
-from db_store import get_paper_portfolio, get_trade_history, init_db
+from db_store import get_paper_portfolio, get_trade_history, init_db, reset_paper_portfolio
 from bot_runner import is_bot_running, read_bot_log, start_bot, stop_bot
 from bot import discover_chat_id, test_connection
 from binance_engine import check_market_connection
 from paper_trading import get_portfolio_status
+import paper_trading as paper_mod
 
 import streamlit as st
 import pandas as pd
@@ -66,6 +67,27 @@ c4.metric("Bot", "Calisiyor" if is_bot_running() else "Durdu")
 if status.get("positions"):
     st.write("Pozisyonlar:", " · ".join(status["positions"][:6]))
 
+# ── Bakiye sifirla ──────────────────────────────────────────────────────
+st.subheader("Bakiye")
+rb1, rb2, rb3 = st.columns([2, 2, 2])
+with rb1:
+    reset_amount = st.number_input(
+        "Yeni baslangic bakiyesi (USDT)",
+        min_value=100.0,
+        value=float(settings.PAPER_INITIAL_BALANCE or 10000),
+        step=100.0,
+    )
+with rb2:
+    st.write("")
+    st.write("")
+    if st.button("Bakiyeyi sifirla", type="secondary"):
+        reset_paper_portfolio(float(reset_amount))
+        paper_mod._paper_engine = None
+        st.success(f"Bakiye sifirlandi: ${reset_amount:,.2f} USDT (pozisyonlar temizlendi)")
+        st.rerun()
+with rb3:
+    st.caption("Pozisyonlari siler, nakiti sectigin tutara ceker.")
+
 # ── Bot kontrol ─────────────────────────────────────────────────────────
 st.subheader("Bot")
 risk = get_risk_settings()
@@ -93,8 +115,10 @@ if log:
 st.subheader("Risk & Watchlist")
 with st.form("risk_form"):
     wl_default = risk.get("watchlist") or DEFAULT_SYMBOLS
-    watchlist = st.multiselect("Watchlist", options=DEFAULT_SYMBOLS, default=wl_default)
-    symbol = st.selectbox("Varsayilan sembol", options=DEFAULT_SYMBOLS, index=0 if "BTCUSDT" in DEFAULT_SYMBOLS else 0)
+    watchlist = st.multiselect("Watchlist", options=DEFAULT_SYMBOLS, default=[s for s in wl_default if s in DEFAULT_SYMBOLS] or DEFAULT_SYMBOLS)
+    _sym_opts = DEFAULT_SYMBOLS
+    _sym_idx = _sym_opts.index(risk["symbol"]) if risk.get("symbol") in _sym_opts else 0
+    symbol = st.selectbox("Varsayilan sembol", options=_sym_opts, index=_sym_idx)
     quote_qty = st.number_input("Alim tutari (USDT)", min_value=5.0, value=float(risk["quote_qty"]), step=5.0)
     min_conf = st.slider("Min guven %", 50, 90, int(risk["min_confidence"]))
     sl = st.number_input("Stop Loss %", min_value=0.5, value=float(risk["stop_loss_pct"]), step=0.5)
