@@ -34,14 +34,14 @@ DEFAULT_SYMBOLS = ["BTCUSDT", "ETHUSDT", "SOLUSDT", "AVAXUSDT", "BNBUSDT", "XRPU
 
 def _mode() -> str:
     if settings.PAPER_TRADING:
-        return "PAPER"
+        return "Simülasyon"
     if settings.USE_TESTNET:
         return "TESTNET"
     return "CANLI"
 
 
 st.title("Bobot")
-st.caption(f"Mod: **{_mode()}** · SHORT_TERM · watchlist paper ajan")
+st.caption(f"Mod: **{_mode()}** · SHORT_TERM · watchlist ajan")
 
 # ── Ozet ────────────────────────────────────────────────────────────────
 try:

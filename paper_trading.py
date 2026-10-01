@@ -1,5 +1,5 @@
 """
-Paper Trading motoru — canlı fiyatlarla sanal emir simülasyonu.
+Simülasyon motoru — canlı fiyatlarla sanal emir (gerçek para yok).
 """
 
 from __future__ import annotations
@@ -44,7 +44,7 @@ class PaperTradingEngine:
         update_paper_portfolio(new_usdt, holdings)
         self.portfolio = get_paper_portfolio()
 
-        order_id = f"PAPER-{uuid.uuid4().hex[:8].upper()}"
+        order_id = f"SIM-{uuid.uuid4().hex[:8].upper()}"
         result = {
             "order_id": order_id,
             "symbol": symbol,
@@ -70,7 +70,7 @@ class PaperTradingEngine:
             is_testnet=False,
             is_paper=True,
         )
-        logger.info("PAPER BUY %s — %.4f @ $%.2f ($%.2f)", symbol, quantity, price, quote_qty)
+        logger.info("SIM BUY %s — %.4f @ $%.2f ($%.2f)", symbol, quantity, price, quote_qty)
         return result
 
     def market_sell(
@@ -106,7 +106,7 @@ class PaperTradingEngine:
         update_paper_portfolio(new_usdt, holdings)
         self.portfolio = get_paper_portfolio()
 
-        order_id = f"PAPER-{uuid.uuid4().hex[:8].upper()}"
+        order_id = f"SIM-{uuid.uuid4().hex[:8].upper()}"
         result = {
             "order_id": order_id,
             "symbol": symbol,
@@ -133,7 +133,7 @@ class PaperTradingEngine:
             is_testnet=False,
             is_paper=True,
         )
-        logger.info("PAPER SELL %s — %.4f @ $%.2f | PnL: $%+.2f", symbol, quantity, price, pnl)
+        logger.info("SIM SELL %s — %.4f @ $%.2f | PnL: $%+.2f", symbol, quantity, price, pnl)
         return result
 
     def get_balance(self, asset: str) -> dict:
@@ -180,7 +180,7 @@ def get_paper_engine() -> PaperTradingEngine:
 
 
 def get_portfolio_status() -> dict:
-    """Paper portfoy ozeti — canli fiyatlarla equity."""
+    """Simülasyon portföy özeti — canlı fiyatlarla equity."""
     import settings
     from binance_engine import get_engine
 
@@ -207,7 +207,7 @@ def get_portfolio_status() -> dict:
             positions.append(f"{asset}: {qty:.6f} (${qty * p:,.2f})")
 
     return {
-        "mode": "PAPER" if settings.PAPER_TRADING else "LIVE",
+        "mode": "SIM" if settings.PAPER_TRADING else "LIVE",
         "usdt": val["usdt"],
         "equity": val["total"],
         "initial": val["initial"],

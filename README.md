@@ -1,16 +1,16 @@
 # Bobot
 
-Paper trading modunda çalışan otonom kripto analiz ajanı.
+Simülasyon modunda çalışan otonom kripto analiz ajanı.
 
 Haberleri RSS üzerinden çeker, Gemini (veya keyword fallback) ile sentiment üretir, SHORT_TERM teknik analiz (RSI/MACD) uygular, eşik geçince sanal AL/SAT verir ve Telegram’a bildirim yollar.
 
-> **Uyarı:** Varsayılan mod paper trading’dir. Gerçek para ile canlı işlem için ek doğrulama gerekir.
+> **Uyarı:** Varsayılan mod simülasyondur (`PAPER_TRADING=True`). Gerçek para ile canlı işlem için ek doğrulama gerekir.
 
 ## Özellikler
 
 - Watchlist tarama (BTC, ETH, SOL, AVAX, BNB, XRP)
 - Haber + teknik sinyal birleşimi
-- Paper portföy (SQLite)
+- Simülasyon portföyü (SQLite)
 - Stop-loss / take-profit otomatiği
 - Telegram bildirimleri
 - Streamlit kontrol paneli (start/stop, risk ayarları)
@@ -36,7 +36,7 @@ main.py
   └─ execution.run_watchlist_cycle()
        ├─ news_engine + analyzer (+ gemini_client)
        ├─ strategies (SHORT_TERM)
-       ├─ paper_trading + db_store
+       ├─ paper_trading + db_store   # simülasyon portföy
        ├─ binance_engine (fiyat/kline)
        └─ bot (Telegram)
 ```
@@ -58,7 +58,7 @@ copy .env.example .env
 - `TELEGRAM_BOT_TOKEN` / `TELEGRAM_CHAT_ID` (bildirim)
 - `GEMINI_API_KEY` (opsiyonel; yoksa keyword fallback)
 
-`PAPER_TRADING=True` kalsın.
+`PAPER_TRADING=True` kalsın (simülasyon açık).
 
 ## Kullanım
 
@@ -84,7 +84,7 @@ Bobot/
 ├── analyzer.py          # Sentiment orkestrasyonu
 ├── news_engine.py       # RSS haber
 ├── gemini_client.py     # Gemini API
-├── paper_trading.py     # Sanal portföy
+├── paper_trading.py     # Simülasyon portföy
 ├── db_store.py          # SQLite
 ├── binance_engine.py    # Piyasa verisi / emir
 ├── bot.py               # Telegram
@@ -100,7 +100,7 @@ Bobot/
 
 **Problem:** Kripto piyasasında haber ve teknik göstergeleri manuel takip etmek yavaş ve tutarsız.
 
-**Çözüm:** Bobot periyodik döngüde haber + teknik analizi birleştirir, paper ortamda karar verir, sonucu Telegram’a iletir.
+**Çözüm:** Bobot periyodik döngüde haber + teknik analizi birleştirir, simülasyon ortamında karar verir, sonucu Telegram’a iletir.
 
 **Kazanımlar:** API entegrasyonu, RSS/sentiment, teknik indikatörler, SQLite ile state yönetimi, Streamlit paneli, ortam değişkenleri ile güvenli config.
 

@@ -17,7 +17,7 @@ logger = logging.getLogger(__name__)
 
 def _mode_badge() -> str:
     if PAPER_TRADING:
-        return "PAPER"
+        return "SIM"
     if USE_TESTNET:
         return "TESTNET"
     return "CANLI"

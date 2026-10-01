@@ -384,7 +384,7 @@ def check_market_connection(symbol: str = "BTCUSDT") -> dict:
     symbol = symbol.upper()
     t0 = time.time()
     if settings.PAPER_TRADING:
-        mode_label = "Paper · public API"
+        mode_label = "Simülasyon · public API"
     elif settings.USE_TESTNET:
         mode_label = "Testnet"
     else:

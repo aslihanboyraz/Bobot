@@ -31,7 +31,7 @@ logger = logging.getLogger("bobot")
 
 def _mode_label() -> str:
     if PAPER_TRADING:
-        return "PAPER"
+        return "SIM"
     if USE_TESTNET:
         return "TESTNET"
     return "CANLI"
